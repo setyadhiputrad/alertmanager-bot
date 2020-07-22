@@ -116,7 +116,7 @@ func main() {
 
 	a.Flag("template.paths", "The paths to the template").
 		Envar("TEMPLATE_PATHS").
-		Default("/templates/default.tmpl").
+		Default("./default.tmpl").
 		ExistingFilesVar(&config.templatesPaths)
 
 	_, err := a.Parse(os.Args[1:])
