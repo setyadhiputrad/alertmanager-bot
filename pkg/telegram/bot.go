@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"github.com/metalmatze/alertmanager-bot/pkg/api"
 	"net/url"
 	"sort"
 	"strings"
@@ -265,6 +266,19 @@ func (b *Bot) Run(ctx context.Context, webhooks <-chan notify.WebhookMessage) er
 	return gr.Run()
 }
 
+type Data struct {
+	Receiver string          `json:"receiver"`
+	Status   string          `json:"status"`
+	Alerts   template.Alerts `json:"alerts"`
+
+	GroupLabels       template.KV `json:"groupLabels"`
+	CommonLabels      template.KV `json:"commonLabels"`
+	CommonAnnotations template.KV `json:"commonAnnotations"`
+	Data              template.KV `json:"data"`
+
+	ExternalURL string `json:"externalURL"`
+}
+
 // sendWebhook sends messages received via webhook to all subscribed chats
 func (b *Bot) sendWebhook(ctx context.Context, webhooks <-chan notify.WebhookMessage) error {
 	for {
@@ -294,10 +308,66 @@ func (b *Bot) sendWebhook(ctx context.Context, webhooks <-chan notify.WebhookMes
 				continue
 			}
 
+			//
+			cpuURL := "https://prom.ta.setyadhiputra.com/api/v1/query?query=rate(container_cpu_usage_seconds_total{instance=%22cadvisor.gcp.tanggap.in:80%22,container_label_com_docker_compose_container_number=%221%22}[30s])/1*100"
+			memoryURL := "https://prom.ta.setyadhiputra.com/api/v1/query?query=container_memory_usage_bytes{instance=%22cadvisor.gcp.tanggap.in:80%22,container_label_com_docker_compose_container_number=%221%22}/1000000000"
+			upDownURL := "https://prom.ta.setyadhiputra.com/api/v1/query?query=time()-container_last_seen{instance=%22cadvisor.gcp.tanggap.in:80%22,container_label_com_docker_compose_container_number=%221%22}"
+			username := "promdev"
+			password := "developerulala"
+
+			var res string
+
 			for _, chat := range chats {
 				err = b.telegram.SendMessage(chat, b.truncateMessage(out), &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 				if err != nil {
 					level.Warn(b.logger).Log("msg", "failed to send message to subscribed chat", "err", err)
+				}
+
+				firings := w.Alerts.Firing()
+				resolved := w.Alerts.Resolved()
+				for i := range resolved {
+					firings = append(firings, resolved[i])
+				}
+
+				for i := range firings {
+					firing := firings[i]
+					if firing.Labels["resource"] == "CPU" {
+						cpuRes := api.Request(cpuURL, username, password)
+
+						res += " | " + "ID" + " | " + "Name" + "\t | " + "Value" + " |\n"
+						for i := range cpuRes {
+							res += " | " + cpuRes[i].Id + " | " + cpuRes[i].Name + "\t | " + cpuRes[i].Value + " |\n"
+						}
+
+						err = b.telegram.SendMessage(chat, b.truncateMessage(res), &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+						if err != nil {
+							level.Warn(b.logger).Log("msg", "failed to send message to subscribed chat", "err", err)
+						}
+					} else if firing.Labels["resource"] == "RAM" {
+						memRes := api.Request(memoryURL, username, password)
+
+						res += " | " + "ID" + " | " + "Name" + "\t | " + "Value" + " |\n"
+						for i := range memRes {
+							res += " | " + memRes[i].Id + " | " + memRes[i].Name + "\t | " + memRes[i].Value + " |\n"
+						}
+
+						err = b.telegram.SendMessage(chat, b.truncateMessage(res), &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+						if err != nil {
+							level.Warn(b.logger).Log("msg", "failed to send message to subscribed chat", "err", err)
+						}
+					} else if firing.Labels["resource"] == "Up / Down" {
+						upDownRes := api.Request(upDownURL, username, password)
+
+						res += " | " + "ID" + "\t | " + "Name" + "\t | " + "Value" + " |\n"
+						for i := range upDownRes {
+							res += " | " + upDownRes[i].Id + " | " + upDownRes[i].Name + "\t | " + upDownRes[i].Value + " |\n"
+						}
+
+						err = b.telegram.SendMessage(chat, b.truncateMessage(res), &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+						if err != nil {
+							level.Warn(b.logger).Log("msg", "failed to send message to subscribed chat", "err", err)
+						}
+					}
 				}
 			}
 		}
