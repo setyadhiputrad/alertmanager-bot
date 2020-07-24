@@ -355,7 +355,7 @@ func (b *Bot) sendWebhook(ctx context.Context, webhooks <-chan notify.WebhookMes
 						if err != nil {
 							level.Warn(b.logger).Log("msg", "failed to send message to subscribed chat", "err", err)
 						}
-					} else if firing.Labels["resource"] == "Up / Down" {
+					} else if firing.Labels["resource"] == "Stat" {
 						upDownRes := api.Request(upDownURL, username, password)
 
 						res += " | " + "ID" + "\t | " + "Name" + "\t | " + "Value" + " |\n"

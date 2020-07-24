@@ -1,4 +1,5 @@
-module github.com/metalmatze/alertmanager-bot
+//module github.com/metalmatze/alertmanager-bot
+module github.com/ciazhar/alertmanager-bot
 
 require (
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
