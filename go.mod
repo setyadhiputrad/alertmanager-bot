@@ -1,3 +1,4 @@
+//module github.com/metalmatze/alertmanager-bot
 module github.com/ciazhar/alertmanager-bot
 
 require (
